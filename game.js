@@ -1576,7 +1576,7 @@ $("playBtn").onclick = startGame;
   const KEY = "ws_followed", MIN_MS = 5000;
   const play = $("playBtn"), link = $("followBtn"), msg = $("followMsg");
   const unlock = () => {
-    if (!play.dataset.counted) { play.dataset.counted = 1; (window.dataLayer = window.dataLayer || []).push({ event: "game_unlocked" }); }
+    if (!play.dataset.counted) { play.dataset.counted = 1; if (window.gtag) gtag("event", "game_unlocked"); }
     play.disabled = false; play.textContent = "▶ PLAY";
     link.classList.add("hidden"); msg.classList.add("hidden");
     try { localStorage.setItem(KEY, "1"); } catch (e) {}
@@ -1586,7 +1586,7 @@ $("playBtn").onclick = startGame;
   let openedAt = 0;
   link.addEventListener("click", () => {
     openedAt = Date.now();
-    (window.dataLayer = window.dataLayer || []).push({ event: "instagram_follow_click" });
+    if (window.gtag) gtag("event", "instagram_follow_click");
     msg.textContent = "Follow us, then come back to this tab…";
   });
   const check = () => {
