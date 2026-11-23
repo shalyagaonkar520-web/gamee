@@ -334,8 +334,8 @@ function getImg(src) {
 for (const f of FACES) getImg(f.img);
 
 let round = 1, roundKills = 0, roundStartScore = 0, introT = 0, winTimer = 0;
-function roundHeroFace(n = round) { return FACES[(n - 1) % FACES.length]; }
-function roundEnemyFace(n = round) { return FACES[n % FACES.length]; }
+function roundHeroFace() { return FACES[0]; }    // hero is always Amitabh Bachchan
+function roundEnemyFace() { return FACES[1]; }
 function roundGoal(n = round) {
   return {
     target: CONFIG.roundBaseTarget + (n - 1) * CONFIG.roundTargetGrowth,
@@ -348,6 +348,11 @@ function applyRound(n) {
   const g = roundGoal(n);
   CONFIG.passSeconds = g.pass; CONFIG.diveSpeed = g.dive;
   roundKills = 0; winTimer = 0;
+}
+// endless mode: no rounds, it just gets a little harder as the score climbs
+function rampDifficulty() {
+  const lvl = 1 + Math.floor(score / 8);
+  if (lvl !== round) { round = lvl; const g = roundGoal(lvl); CONFIG.passSeconds = g.pass; CONFIG.diveSpeed = g.dive; }
 }
 
 /* ---------------- Game state ---------------- */
@@ -461,7 +466,7 @@ function updateHud() {
   ui.score.textContent = score;
   ui.best.textContent = "BEST " + best;
   ui.lives.textContent = "❤".repeat(Math.max(0, lives)) + "♡".repeat(Math.max(0, CONFIG.lives - lives));
-  ui.round.textContent = "ROUND " + round + "  \u2022  " + Math.min(roundKills, roundGoal().target) + "/" + roundGoal().target;
+  ui.round.textContent = "";
 }
 
 function setState(s) {
@@ -666,7 +671,7 @@ function hitMosquito(m) {
   const pts = m.type === "gf" ? 3 : m.type === "big" ? 2 : 1;
   score += pts;
   roundKills++;
-  if (roundKills >= roundGoal().target && winTimer <= 0) winTimer = 1.4;
+  rampDifficulty();
   Sound.splat(m.type === "big");
   burst(m.x, m.y, 16, m.type === "gf" ? "#ff6fae" : "#ffb020");
   popups.push({ x: m.x, y: m.y - 20 * S, text: "+" + pts, life: 1, color: "#222" });
@@ -773,9 +778,9 @@ function drawIntro() {
   label(hf.name, rx, cy + size * 0.85, Math.max(20, size * 0.15), "#ffd400", W * 0.46);
   const pop = t < 0.5 ? 1 + Math.sin(Math.min(1, t / 0.5) * Math.PI) * 0.5 : 1;
   label("VS", W / 2, cy + size * 0.16 * pop, Math.max(48, size * 0.5) * pop, "#ffffff");
-  label("ROUND " + round, W / 2, H * 0.13, Math.max(30, Math.min(W, H) * 0.09), "#ffd400");
+  label("WEB SWATTER", W / 2, H * 0.13, Math.max(30, Math.min(W, H) * 0.09), "#ffd400");
   ctx.font = `600 ${Math.max(14, size * 0.075)}px Segoe UI, sans-serif`; ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText("Shoot " + roundGoal().target + " mosquitoes to win", W / 2, H * 0.13 + Math.max(24, size * 0.14));
+  ctx.fillText("Swat as many mosquitoes as you can", W / 2, H * 0.13 + Math.max(24, size * 0.14));
   if (t > 0.5) {
     ctx.globalAlpha = 0.55 + 0.45 * Math.sin(time * 5);
     ctx.fillText((TOUCH ? "tap" : "click") + " to start", W / 2, H * 0.94);
@@ -1590,7 +1595,7 @@ $("playBtn").onclick = startGame;
   document.addEventListener("visibilitychange", check);
   window.addEventListener("focus", check);
 })();
-$("retryBtn").onclick = () => { Sound.init(); score = roundStartScore; showIntro(round); };   // retry the round you lost
+$("retryBtn").onclick = () => { Sound.init(); score = 0; showIntro(1); };
 $("nextBtn").onclick = () => { Sound.init(); showIntro(round + 1); };
 $("pauseBtn").onclick = () => { if (state === State.PLAY) setState(State.PAUSE); };
 $("resumeBtn").onclick = () => setState(State.PLAY);
