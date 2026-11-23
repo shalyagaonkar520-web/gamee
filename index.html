@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Web Swatter</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="score">0</div>
+    <div id="best">BEST 0</div>
+    <div id="lives"></div>
+    <div id="roundInfo"></div>
+    <button id="pauseBtn" title="Pause (P / Esc)">II</button>
+  </div>
+
+  <!-- Main menu -->
+  <div id="menu" class="overlay">
+    <h1>WEB SWATTER</h1>
+    <p class="sub">Round after round: shoot the mosquitoes before they bite. Clear a round to unlock the next.</p>
+    <button class="btn yellow" id="playBtn">▶ PLAY</button>
+    <p class="hint">Move to aim · Click / Tap / Space to shoot web · P to pause · M to mute</p>
+    <p class="hint small">Order: 2 normal mosquitoes, then the big face mosquito (2 hits). Every round gets harder.</p>
+  </div>
+
+  <!-- Round won -->
+  <div id="win" class="overlay hidden">
+    <h2 id="winTitle">ROUND 1 CLEARED!</h2>
+    <p class="sub" id="winSub"></p>
+    <div id="winVideo"></div>
+    <button class="btn yellow" id="nextBtn">NEXT ROUND &#9654;</button>
+  </div>
+
+  <!-- Pause -->
+  <div id="pause" class="overlay hidden">
+    <h2>⏸ PAUSED</h2>
+    <div class="row">
+      <button class="btn yellow" id="resumeBtn">▶ RESUME</button>
+      <button class="btn dark" id="menuBtn">⌂ MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- Game over -->
+  <div id="over" class="overlay hidden">
+    <h2>BITTEN!</h2>
+    <p class="big" id="finalScore">0</p>
+    <p class="sub" id="finalBest">BEST 0</p>
+    <div class="row">
+      <button class="btn yellow" id="retryBtn">↻ RETRY</button>
+      <button class="btn dark" id="menuBtn2">⌂ MAIN MENU</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
