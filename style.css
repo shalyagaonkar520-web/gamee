@@ -193,3 +193,11 @@ h2 {
   #pauseBtn { width: 48px; height: 48px; font-size: 16px; }
   .btn { min-height: 48px; }
 }
+
+/* round counter stays readable over any background */
+#roundInfo { color: #fff; background: rgba(27, 16, 48, 0.72); padding: 3px 9px; border-radius: 10px; }
+@media (max-height: 520px) {
+  #lives { font-size: 18px; top: max(8px, env(safe-area-inset-top)); }
+  #roundInfo { top: calc(max(8px, env(safe-area-inset-top)) + 28px); font-size: 11px; padding: 2px 8px; }
+  #pauseBtn { top: max(8px, env(safe-area-inset-top)); }
+}

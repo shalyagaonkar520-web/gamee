@@ -737,7 +737,7 @@ function drawIntro() {
   ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 2 * S;
   for (let i = 0; i < 26; i++) { const y = (i / 26) * H; ctx.beginPath(); ctx.moveTo(0, y + Math.sin(i) * 9); ctx.lineTo(W, y - 40 * S); ctx.stroke(); }
 
-  const size = Math.min(W * (H > W ? 0.36 : 0.3), H * 0.4), cy = H * 0.53;
+  const size = Math.min(W * (H > W ? 0.29 : 0.3), H * 0.4), cy = H * 0.53;
   const gl = (x) => {
     const r = ctx.createRadialGradient(x, cy, 10, x, cy, size * 0.9);
     r.addColorStop(0, "rgba(255,255,255,0.18)"); r.addColorStop(1, "rgba(255,255,255,0)");
@@ -1600,6 +1600,6 @@ window.addEventListener("blur", () => { if (state === State.PLAY) setState(State
 document.addEventListener("visibilitychange", () => { if (document.hidden && state === State.PLAY) setState(State.PAUSE); });
 
 mouse.x = W / 2 + 200; mouse.y = H / 3;
-if (TOUCH) { const hint = document.querySelector("#menu .hint"); if (hint) hint.textContent = "Tap anywhere to aim and shoot your web \u00b7 tap the II button to pause"; }
+if (TOUCH) { const hint = document.querySelector("#menu .hint:not(#followMsg)"); if (hint) hint.textContent = "Tap anywhere to aim and shoot your web \u00b7 tap the II button to pause"; }
 updateHud();
 setState(State.MENU);

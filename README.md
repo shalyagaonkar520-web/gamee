@@ -59,3 +59,10 @@ Use exactly these file names. Change how close counts as "near" with `CONFIG.nea
 - Dying retries the same round.
 - Add more characters in the `FACES` list near the top of `game.js` (a cut-out PNG + a name).
 - Difficulty per round: `CONFIG.roundBaseTarget`, `roundTargetGrowth`, and `roundGoal()` in `game.js`.
+
+## Works on phones, tablets and laptops
+- The canvas always matches the visible window (portrait, landscape, rotating, browser toolbars) and everything scales with the screen size.
+- Touch: tap anywhere to aim and shoot; the pause button is touch-sized; notches / safe areas are respected.
+- Slow device? If the frame rate stays under ~36 fps the game automatically renders at a lower resolution.
+- Sounds are pre-created and unlocked on the first tap, so they play on phones and don't lag on rapid shots.
+- Win video: Chrome/Edge/Firefox play `videos/win.webm` (transparent). Safari / iPhone play `videos/win_green.mp4` and remove the green screen live on a canvas (needs the game opened over http/https, e.g. `run.bat` or GitHub Pages — not by double-clicking the file).
