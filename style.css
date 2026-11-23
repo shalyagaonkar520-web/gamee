@@ -10,13 +10,18 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 
 canvas#game {
+  position: fixed;
+  top: 0;
+  left: 0;
   display: block;
-  width: 100vw;
-  height: 100vh;
   cursor: none;
+  touch-action: none;
 }
 
 .hidden { display: none !important; }
@@ -115,6 +120,8 @@ h2 {
 }
 .btn:active { transform: scale(0.95); }
 .btn.yellow { background: #ffd400; color: #222; box-shadow: 0 4px 0 #b39500; }
+.btn.insta  { background: linear-gradient(45deg,#f09433,#dc2743,#bc1888); color: #fff; text-decoration: none; display: inline-block; box-shadow: 0 4px 0 #7a0f4f; }
+.btn:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.6); }
 .btn.dark   { background: #2b2f3a; color: #fff; box-shadow: 0 4px 0 #111; }
 
 #roundInfo {
@@ -148,3 +155,41 @@ h2 {
   letter-spacing: 2px;
 }
 #winLink { color: #cfd6ff; font-size: 13px; }
+
+/* ---------- responsive ---------- */
+#winVideo { position: relative; }
+#winVideo canvas { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 14px 14px rgba(0,0,0,0.35)); }
+.overlay { overflow-y: auto; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+#lives   { top: max(22px, env(safe-area-inset-top)); left: max(22px, env(safe-area-inset-left)); }
+#roundInfo { top: calc(max(22px, env(safe-area-inset-top)) + 34px); left: max(22px, env(safe-area-inset-left)); }
+#pauseBtn { top: max(18px, env(safe-area-inset-top)); right: max(22px, env(safe-area-inset-right)); }
+
+@media (max-width: 600px) {
+  #score { font-size: 30px; top: 12px; }
+  #best { top: 48px; font-size: 11px; }
+  #lives { font-size: 18px; letter-spacing: 2px; top: max(14px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
+  #roundInfo { font-size: 11px; letter-spacing: 1px; top: calc(max(14px, env(safe-area-inset-top)) + 28px); left: max(12px, env(safe-area-inset-left)); }
+  #pauseBtn { top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); }
+  h2 { font-size: 30px; }
+  .big { font-size: 48px; }
+  .sub { font-size: 14px; }
+  .btn { padding: 12px 22px; }
+}
+
+@media (max-height: 520px) {
+  .overlay { gap: 8px; }
+  h1 { font-size: clamp(24px, 9vh, 44px); }
+  h2 { font-size: 26px; }
+  .sub { font-size: 12px; }
+  .hint { font-size: 11px; }
+  .big { font-size: 36px; }
+  .btn { padding: 8px 20px; font-size: 14px; }
+  #winVideo { height: 44vh; }
+  #score { font-size: 26px; top: 8px; }
+  #best { top: 38px; }
+}
+
+@media (pointer: coarse) {
+  #pauseBtn { width: 48px; height: 48px; font-size: 16px; }
+  .btn { min-height: 48px; }
+}

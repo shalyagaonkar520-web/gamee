@@ -24,6 +24,8 @@ const CONFIG = {
   roundBaseTarget: 4,      // kills needed to win round 1
   roundTargetGrowth: 2,    // extra kills needed per round
   introSeconds: 3.4,       // how long the "VS" screen stays (click to skip)
+  winVideoGreen: "videos/win_green.mp4", // same clip with its green screen, keyed live on Safari/iPhone
+  forceKeyedVideo: false,
   winVideo: "videos/win.webm", // transparent (green removed) video shown on the empty stage after winning
   nextMosquitoDelay: 1,    // seconds before the next mosquito appears
   synthBuzz: false,        // true = also play the generated hum under the clips
@@ -48,18 +50,28 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 let W = 0, H = 0, DPR = 1, S = 1; // S = global scale factor
 
+const TOUCH = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+let dprCap = TOUCH ? 1.5 : 2;       // lowered automatically if the device is slow (see loop)
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
 let bgCanvas = null, bgDirty = true;
 function resize() {
   bgDirty = true;
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  DPR = Math.min(window.devicePixelRatio || 1, dprCap);
   W = window.innerWidth;
   H = window.innerHeight;
-  canvas.width = W * DPR;
-  canvas.height = H * DPR;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  canvas.style.width = W + "px";      // keep the canvas exactly the size of the visible window
+  canvas.style.height = H + "px";
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  S = Math.max(0.6, Math.min(W, H) / 750);
+  // scale everything to the screen: phones in portrait are sized by width, others by the short side
+  const portrait = H > W * 1.1;
+  S = portrait ? clamp(W / 520, 0.7, 1.2) : clamp(Math.min(W, H) / 750, 0.6, 1.6);
 }
 window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", () => setTimeout(resize, 250));
+if (window.visualViewport) window.visualViewport.addEventListener("resize", resize);
 resize();
 
 const $ = (id) => document.getElementById(id);
@@ -79,16 +91,23 @@ function saveBest(v) { try { localStorage.setItem("webswatter_best", v); } catch
      sounds/mosquito.mp3  -> optional: replaces the built-in mosquito whine (looped)
    If a file is missing, the built-in generated sound is used instead.
 ------------------------------------------ */
-function loadClip(src, loop = false) {
-  const clip = { el: null, ok: false };
+function loadClip(src, loop = false, pool = 1) {
+  // pool > 1: several copies so a clip can overlap itself (rapid shots) without creating new
+  // audio elements while playing, which phones block or lag on
+  const clip = { el: null, ok: false, pool: [] };
   try {
-    const a = new Audio();
-    a.preload = "auto";
-    a.loop = loop;
-    for (const ev of ["loadedmetadata", "canplay", "canplaythrough"]) a.addEventListener(ev, () => { clip.ok = true; }, { once: true });
-    a.addEventListener("error", () => { clip.ok = false; });
-    a.src = src;
-    clip.el = a;
+    for (let i = 0; i < pool; i++) {
+      const a = new Audio();
+      a.preload = "auto";
+      a.loop = loop;
+      if (i === 0) {
+        for (const ev of ["loadedmetadata", "canplay", "canplaythrough"]) a.addEventListener(ev, () => { clip.ok = true; }, { once: true });
+        a.addEventListener("error", () => { clip.ok = false; });
+      }
+      a.src = src;
+      clip.pool.push(a);
+    }
+    clip.el = clip.pool[0];
   } catch {}
   return clip;
 }
@@ -97,13 +116,13 @@ const Sound = {
   ctx: null, muted: false, buzzGain: null, buzzOscs: [],
   files: {
     near: loadClip("sounds/near.mp3"),
-    shoot: loadClip("sounds/shoot.mp3"),   // cut from the reference video
-    kill: loadClip("sounds/kill.mp3"),     // cut from the reference video
-    shotdown: loadClip("sounds/shotdown.mp3"),   // video 26-27s: mosquito shot down
+    shoot: loadClip("sounds/shoot.mp3", false, 3),   // cut from the reference video
+    kill: loadClip("sounds/kill.mp3", false, 3),     // cut from the reference video
+    shotdown: loadClip("sounds/shotdown.mp3", false, 3),   // video 26-27s: mosquito shot down
     bite: loadClip("sounds/bite.mp3"),           // big mosquito bites him
     sheru: loadClip("sounds/sheru.mp3"),         // round won
-    elvishKill: loadClip("sounds/elvish_kill.mp3"), // plays when the face mosquito is shot down
-    miss: loadClip("sounds/miss.mp3"),           // video 17.6s: the missed shot
+    elvishKill: loadClip("sounds/elvish_kill.mp3", false, 3), // plays when the face mosquito is shot down
+    miss: loadClip("sounds/miss.mp3", false, 3),           // video 17.6s: the missed shot
     // one clip per mosquito, in order: 1st, 2nd, 3rd, then repeats
     mosq: [
       loadClip("sounds/mosquito1.mp3"),   // video 0-3s
@@ -113,7 +132,31 @@ const Sound = {
     mosquito: loadClip("sounds/mosquito.mp3", true),
   },
   nearCooldown: 0,
+  unlocked: false,
+  // phones only allow sound after a tap: "touch" every clip once (silently) on the first tap
+  unlock() {
+    if (this.unlocked) return;
+    this.unlocked = true;
+    const all = [];
+    for (const f of Object.values(this.files)) { if (Array.isArray(f)) all.push(...f); else all.push(f); }
+    for (const f of all) {
+      for (const a of (f.pool || (f.el ? [f.el] : []))) {
+        const was = a.muted; a.muted = true;
+        const done = () => { a.pause(); try { a.currentTime = 0; } catch {} a.muted = was; };
+        try { const pr = a.play(); if (pr && pr.then) pr.then(done).catch(() => { a.muted = was; }); else done(); } catch { a.muted = was; }
+      }
+    }
+  },
+  // play a clip from its pool (an idle copy if there is one)
+  fire(f, vol = 1) {
+    const list = f.pool && f.pool.length ? f.pool : [f.el];
+    const a = list.find((x) => x.paused || x.ended) || list[0];
+    try { a.currentTime = 0; } catch {}
+    a.volume = vol; a.play().catch(() => {});
+    return a;
+  },
   init() {
+    this.unlock();
     if (this.ctx) return;
     try {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -202,7 +245,7 @@ const Sound = {
   stopAll(keepBite = false) {
     for (const f of Object.values(this.files)) {
       if (keepBite && f === this.files.bite) continue;
-      if (f.el && !f.el.paused) f.el.pause();
+      for (const a of (f.pool || (f.el ? [f.el] : []))) if (!a.paused) a.pause();
     }
     this.stopMosq();
     if (this.lastShot) this.lastShot.pause();
@@ -237,8 +280,7 @@ const Sound = {
     const f = this.files.shoot;
     if (f.ok) {
       if (this.muted) return;
-      const c = f.el.cloneNode(); c.volume = 1; c.play().catch(() => {});
-      this.lastShot = c;
+      this.lastShot = this.fire(f, 1);
       return;
     }
     this.tone(1900, 180, 0.22, 0.12, "square");
@@ -253,7 +295,7 @@ const Sound = {
     if (f.ok) {
       if (this.muted) return;
       if (this.lastShot) this.lastShot.pause(); // the shot-down clip already contains the shot
-      for (let i = 0; i < 2; i++) { const c = f.el.cloneNode(); c.volume = 1; c.play().catch(() => {}); } // 2 layers = even louder
+      this.fire(f, 1); this.fire(f, 1);   // 2 layers = even louder
       return;
     }
     this.noise(0.18, 700, 0.5); this.tone(300, 80, 0.15, 0.15);
@@ -262,7 +304,7 @@ const Sound = {
   miss() {
     const f = this.files.miss;
     if (this.muted) return;
-    if (f.ok) { const c = f.el.cloneNode(); c.volume = 1; c.play().catch(() => {}); return; }
+    if (f.ok) { this.fire(f, 1); return; }
     this.tone(700, 120, 0.3, 0.15, "sawtooth");
   },
   ouch()  { this.tone(500, 150, 0.35, 0.2, "square"); },
@@ -371,12 +413,48 @@ function winRound() {
   $("winSub").textContent = "Score " + score + "  \u2022  Next: Round " + (round + 1) + " \u2014 Mosquito vs " + nxt.name;
   Sound.sheru(loadWinVideo);    // Sheru Bhai audio first, then the video
 }
+function needsKeyedVideo() {
+  // Safari / iPhone can't show transparent WebM, so they get the green-screen clip keyed live on a canvas
+  const ua = navigator.userAgent;
+  const ios = /iP(hone|ad|od)/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const safari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(ua);
+  return CONFIG.forceKeyedVideo || ios || safari || new URLSearchParams(location.search).has("key");
+}
+function keyLoop(v, c) {
+  const g = c.getContext("2d", { willReadFrequently: true });
+  const fit = () => { if (v.videoWidth) { c.width = v.videoWidth; c.height = v.videoHeight; } };
+  c.width = 360; c.height = 640;
+  v.addEventListener("loadedmetadata", fit);
+  const step = () => {
+    if (!c.isConnected) return;                 // win screen closed
+    if (v.readyState >= 2) {
+      g.drawImage(v, 0, 0, c.width, c.height);
+      const im = g.getImageData(0, 0, c.width, c.height), d = im.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const m = d[i] > d[i + 2] ? d[i] : d[i + 2], k = d[i + 1] - m;   // how much greener than red/blue
+        if (k > 50) d[i + 3] = 0;
+        else if (k > 18) { d[i + 3] = (255 * (50 - k)) / 32; d[i + 1] = m; }
+      }
+      g.putImageData(im, 0, 0);
+    }
+    requestAnimationFrame(step);
+  };
+  step();
+}
 function loadWinVideo() {
   if (state !== State.WIN) return;
-  // the lion clip (green screen already removed) walks onto the empty stage, looping
-  $("winVideo").innerHTML = '<video src="' + CONFIG.winVideo + '" autoplay loop playsinline></video>';
-  const v = $("winVideo").querySelector("video");
-  v.play().catch(() => {});
+  const box = $("winVideo");
+  if (!needsKeyedVideo()) {
+    // transparent WebM (green already removed): walks onto the empty stage, looping
+    box.innerHTML = '<video src="' + CONFIG.winVideo + '" autoplay loop playsinline></video>';
+    box.querySelector("video").play().catch(() => {});
+    return;
+  }
+  box.innerHTML = '<canvas></canvas><video src="' + CONFIG.winVideoGreen + '" loop playsinline ' +
+    'style="position:absolute;width:2px;height:2px;opacity:0;pointer-events:none"></video>';
+  const v = box.querySelector("video"), c = box.querySelector("canvas");
+  v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+  keyLoop(v, c);
 }
 
 function updateHud() {
@@ -659,7 +737,7 @@ function drawIntro() {
   ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 2 * S;
   for (let i = 0; i < 26; i++) { const y = (i / 26) * H; ctx.beginPath(); ctx.moveTo(0, y + Math.sin(i) * 9); ctx.lineTo(W, y - 40 * S); ctx.stroke(); }
 
-  const size = Math.min(W * 0.3, H * 0.4), cy = H * 0.53;
+  const size = Math.min(W * (H > W ? 0.36 : 0.3), H * 0.4), cy = H * 0.53;
   const gl = (x) => {
     const r = ctx.createRadialGradient(x, cy, 10, x, cy, size * 0.9);
     r.addColorStop(0, "rgba(255,255,255,0.18)"); r.addColorStop(1, "rgba(255,255,255,0)");
@@ -685,12 +763,14 @@ function drawIntro() {
   }
 
   ctx.textAlign = "center"; ctx.lineJoin = "round";
-  const label = (txt, x, y, px, fill) => {
-    ctx.font = `800 ${px}px Segoe UI, sans-serif`; ctx.lineWidth = px * 0.14; ctx.strokeStyle = "#111";
+  const label = (txt, x, y, px, fill, maxW) => {
+    ctx.font = `800 ${px}px Segoe UI, sans-serif`;
+    if (maxW) { const w = ctx.measureText(txt).width; if (w > maxW) { px = px * maxW / w; ctx.font = `800 ${px}px Segoe UI, sans-serif`; } }
+    ctx.lineWidth = px * 0.14; ctx.strokeStyle = "#111";
     ctx.strokeText(txt, x, y); ctx.fillStyle = fill; ctx.fillText(txt, x, y);
   };
-  label("MOSQUITO", lx, cy + size * 0.85, Math.max(20, size * 0.15), "#ff4d5e");
-  label(hf.name, rx, cy + size * 0.85, Math.max(20, size * 0.15), "#ffd400");
+  label("MOSQUITO", lx, cy + size * 0.85, Math.max(20, size * 0.15), "#ff4d5e", W * 0.46);
+  label(hf.name, rx, cy + size * 0.85, Math.max(20, size * 0.15), "#ffd400", W * 0.46);
   const pop = t < 0.5 ? 1 + Math.sin(Math.min(1, t / 0.5) * Math.PI) * 0.5 : 1;
   label("VS", W / 2, cy + size * 0.16 * pop, Math.max(48, size * 0.5) * pop, "#ffffff");
   label("ROUND " + round, W / 2, H * 0.13, Math.max(30, Math.min(W, H) * 0.09), "#ffd400");
@@ -698,7 +778,7 @@ function drawIntro() {
   ctx.fillText("Shoot " + roundGoal().target + " mosquitoes to win", W / 2, H * 0.13 + Math.max(24, size * 0.14));
   if (t > 0.5) {
     ctx.globalAlpha = 0.55 + 0.45 * Math.sin(time * 5);
-    ctx.fillText("click to start", W / 2, H * 0.94);
+    ctx.fillText((TOUCH ? "tap" : "click") + " to start", W / 2, H * 0.94);
     ctx.globalAlpha = 1;
   }
   ctx.fillStyle = "#ffd400"; ctx.fillRect(0, H - 6, W * Math.min(1, t / CONFIG.introSeconds), 6);
@@ -1441,10 +1521,18 @@ function drawCocoon(c) {
 }
 
 /* ---------------- Main loop ---------------- */
-let last = performance.now();
+let last = performance.now(), frameEma = 1 / 60, slowFrames = 0;
 function loop(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const raw = (now - last) / 1000;
+  const dt = Math.min(0.05, raw);
   last = now;
+  // slow device (under ~36 fps for a couple of seconds)? render at a lower resolution
+  if (raw < 0.25) {
+    frameEma += (raw - frameEma) * 0.05;
+    if (frameEma > 1 / 36 && dprCap > 1) {
+      if (++slowFrames > 90) { dprCap = Math.max(1, dprCap - 0.5); slowFrames = 0; frameEma = 1 / 60; resize(); }
+    } else slowFrames = 0;
+  }
   if (state === State.INTRO) { time += dt; introT += dt; if (introT >= CONFIG.introSeconds) beginRound(); }
   else if (state === State.PLAY || state === State.MENU) update(dt);
   else time += 0; // frozen while paused / game over
@@ -1456,6 +1544,7 @@ requestAnimationFrame(loop);
 /* ---------------- Input ---------------- */
 function setMouse(e) { mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true; }
 canvas.addEventListener("pointermove", setMouse);
+canvas.addEventListener("contextmenu", (e) => e.preventDefault());   // no long-press menu on phones
 canvas.addEventListener("pointerdown", (e) => {
   setMouse(e); Sound.init();
   if (state === State.INTRO) { if (introT > 0.4) beginRound(); return; }
@@ -1473,6 +1562,34 @@ window.addEventListener("keydown", (e) => {
 
 function startGame() { Sound.init(); score = 0; showIntro(1); }
 $("playBtn").onclick = startGame;
+
+// ---- Instagram follow gate ----
+// NOTE: a website cannot truly verify an Instagram follow (Instagram has no public
+// API for that). So this is an honor-system gate: they must open our page, and the
+// game unlocks only after they come back from it (and at least 5s have passed).
+(function followGate() {
+  const KEY = "ws_followed", MIN_MS = 5000;
+  const play = $("playBtn"), link = $("followBtn"), msg = $("followMsg");
+  const unlock = () => {
+    play.disabled = false; play.textContent = "▶ PLAY";
+    link.classList.add("hidden"); msg.classList.add("hidden");
+    try { localStorage.setItem(KEY, "1"); } catch (e) {}
+  };
+  let done = false; try { done = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  if (done) return unlock();
+  let openedAt = 0;
+  link.addEventListener("click", () => {
+    openedAt = Date.now();
+    msg.textContent = "Follow us, then come back to this tab…";
+  });
+  const check = () => {
+    if (!openedAt || document.hidden) return;
+    if (Date.now() - openedAt >= MIN_MS) unlock();
+    else msg.textContent = "Did you follow? Please follow first, then come back!";
+  };
+  document.addEventListener("visibilitychange", check);
+  window.addEventListener("focus", check);
+})();
 $("retryBtn").onclick = () => { Sound.init(); score = roundStartScore; showIntro(round); };   // retry the round you lost
 $("nextBtn").onclick = () => { Sound.init(); showIntro(round + 1); };
 $("pauseBtn").onclick = () => { if (state === State.PLAY) setState(State.PAUSE); };
@@ -1480,7 +1597,9 @@ $("resumeBtn").onclick = () => setState(State.PLAY);
 $("menuBtn").onclick = () => { resetGame(); setState(State.MENU); };
 $("menuBtn2").onclick = () => { resetGame(); setState(State.MENU); };
 window.addEventListener("blur", () => { if (state === State.PLAY) setState(State.PAUSE); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && state === State.PLAY) setState(State.PAUSE); });
 
 mouse.x = W / 2 + 200; mouse.y = H / 3;
+if (TOUCH) { const hint = document.querySelector("#menu .hint"); if (hint) hint.textContent = "Tap anywhere to aim and shoot your web \u00b7 tap the II button to pause"; }
 updateHud();
 setState(State.MENU);

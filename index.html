@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1b1030" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Web Swatter</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -22,7 +25,10 @@
   <div id="menu" class="overlay">
     <h1>WEB SWATTER</h1>
     <p class="sub">Round after round: shoot the mosquitoes before they bite. Clear a round to unlock the next.</p>
-    <button class="btn yellow" id="playBtn">▶ PLAY</button>
+    <!-- Follow gate: replace the href with YOUR Instagram page link -->
+    <a class="btn insta" id="followBtn" href="https://www.instagram.com/nirmaan_builds_?dmpr=MWJvZ2gwbjNvcXEwMQ==" target="_blank" rel="noopener">📸 FOLLOW US ON INSTAGRAM</a>
+    <p class="hint" id="followMsg">Follow us on Instagram to unlock the game!</p>
+    <button class="btn yellow" id="playBtn" disabled>🔒 PLAY</button>
     <p class="hint">Move to aim · Click / Tap / Space to shoot web · P to pause · M to mute</p>
     <p class="hint small">Order: 2 normal mosquitoes, then the big face mosquito (2 hits). Every round gets harder.</p>
   </div>
