@@ -201,3 +201,5 @@ h2 {
   #roundInfo { top: calc(max(8px, env(safe-area-inset-top)) + 28px); font-size: 11px; padding: 2px 8px; }
   #pauseBtn { top: max(8px, env(safe-area-inset-top)); }
 }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
